@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Efetivo da Polícia Militar - PE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDF8F2; /* Tom pastel de fundo mais suave */
+            color: #4A4A4A; /* Cinza escuro para texto */
+        }
+        .kpi-card, .chart-card {
+            background-color: #FFFFFF;
+            border-radius: 0.75rem; /* 12px */
+            box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem; /* 24px */
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            border: 1px solid #F3EAE2;
+        }
+        .kpi-card:hover, .chart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .text-primary { color: #A14A3B; } /* Terracota Principal */
+        .bg-primary { background-color: #A14A3B; }
+        .border-primary { border-color: #A14A3B; }
+
+        .text-accent-1 { color: #D48C7D; } /* Terracota claro */
+        .bg-accent-1 { background-color: #D48C7D; }
+
+        .text-accent-2 { color: #E8A66A; } /* Laranja pastel */
+        .bg-accent-2 { background-color: #E8A66A; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-primary">Raio-X da Polícia Militar de Pernambuco</h1>
+            <p class="text-md text-gray-500 mt-2">Análise do efetivo com base no estudo do Fórum Brasileiro de Segurança Pública (2023)</p>
+        </header>
+
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="kpi-card text-center">
+                <h2 class="text-lg font-semibold text-gray-500">Efetivo Existente em PE</h2>
+                <p class="text-5xl font-bold text-primary mt-2">16.563</p>
+                <p class="text-sm text-gray-500 mt-1">policiais na ativa em 2023</p>
+            </div>
+            <div class="kpi-card text-center">
+                <h2 class="text-lg font-semibold text-gray-500">Defasagem do Efetivo</h2>
+                <p class="text-5xl font-bold text-accent-1 mt-2">40,7%</p>
+                <p class="text-sm text-gray-500 mt-1">Abaixo do previsto em lei (27.950)</p>
+            </div>
+            <div class="kpi-card text-center">
+                <h2 class="text-lg font-semibold text-gray-500">Policiais por 1.000 hab.</h2>
+                <p class="text-5xl font-bold text-accent-2 mt-2">1,8</p>
+                <p class="text-sm text-gray-500 mt-1">Média nacional: 2,0</p>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="chart-card">
+                <h3 class="text-xl font-semibold mb-4 text-primary">Efetivo Previsto vs. Existente (Estados Selecionados)</h3>
+                <canvas id="efetivoPrevistoExistenteChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="text-xl font-semibold mb-4 text-primary">Evolução do Efetivo em Pernambuco (2013-2023)</h3>
+                <canvas id="evolucaoEfetivoChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="text-xl font-semibold mb-4 text-primary">Policiais por 1.000 Habitantes (Comparativo)</h3>
+                <canvas id="policiaisHabitantesChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h3 class="text-xl font-semibold mb-4 text-primary">Ranking de Defasagem do Efetivo (%)</h3>
+                 <canvas id="defasagemChart"></canvas>
+            </div>
+        </section>
+
+        <footer class="text-center mt-12 text-sm text-gray-500">
+            <p>Fonte: Raio-X das Forças de Segurança Pública do Brasil, Fórum Brasileiro de Segurança Pública, 2024.</p>
+            <p>Dashboard desenvolvido pelo CAO de Defesa Social e Controle Externo da Atividade Policial</p>
+        </footer>
+    </div>
+
+<script>
+    // Configurações e Cores
+    const colors = {
+        primary: '#A14A3B',       // Terracota Principal
+        accent1: '#D48C7D',      // Terracota Claro
+        accent2: '#E8A66A',      // Laranja Pastel
+        accent3: '#F3D2A3',      // Amarelo/Areia Pastel
+        backgroundSoft: '#FDF8F2',
+        textDark: '#4A4A4A',
+        graySoft: '#E5E7EB'
+    };
+
+    // Dados extraídos do documento
+    const data = {
+        efetivo: {
+            labels: ["São Paulo", "Rio de Janeiro", "Bahia", "Pernambuco", "Ceará", "Minas Gerais"],
+            previsto: [93802, 60471, 44392, 27950, 21477, 51669],
+            existente: [80037, 43362, 29887, 16563, 22427, 36362]
+        },
+        evolucaoPE: {
+            labels: ['2013', '2023'],
+            valores: [19926, 16563]
+        },
+        policiaisPorHabitante: {
+            labels: ["Amapá", "Distrito Federal", "Brasil", "Pernambuco", "São Paulo", "Paraná", "Santa Catarina"],
+            taxa: [4.2, 3.8, 2.0, 1.8, 1.8, 1.5, 1.3]
+        },
+        defasagem: {
+            labels: ["Goiás (64,3%)", "Amapá (60,8%)", "Santa Catarina (53,9%)", "Mato Grosso (46%)", "Pernambuco (40,7%)", "São Paulo (14,7%)"],
+            valores: [64.3, 60.8, 53.9, 46, 40.7, 14.7]
+        }
+    };
+    
+    // Inicialização dos Gráficos
+    document.addEventListener('DOMContentLoaded', () => {
+        // Gráfico 1: Efetivo Previsto vs. Existente
+        const ctx1 = document.getElementById('efetivoPrevistoExistenteChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: data.efetivo.labels,
+                datasets: [
+                    {
+                        label: 'Efetivo Previsto',
+                        data: data.efetivo.previsto,
+                        backgroundColor: colors.accent3,
+                        borderColor: colors.accent2,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Efetivo Existente',
+                        data: data.efetivo.existente,
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => v / 1000 + 'k' } } }
+            }
+        });
+
+        // Gráfico 2: Evolução do Efetivo em Pernambuco (Eixo Y ajustado)
+        const ctx2 = document.getElementById('evolucaoEfetivoChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: data.evolucaoPE.labels,
+                datasets: [{
+                    label: 'Efetivo da PMPE',
+                    data: data.evolucaoPE.valores,
+                    backgroundColor: [colors.accent1, colors.primary],
+                    borderColor: [colors.accent1, colors.primary],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { 
+                    y: { 
+                        min: 0,        // Define o mínimo do eixo Y como 0
+                        max: 20000,    // Define o máximo do eixo Y como 20000
+                        ticks: { 
+                            callback: v => v / 1000 + 'k' // Formata os ticks (0k, 5k, 10k...)
+                        } 
+                    } 
+                }
+            }
+        });
+
+        // Gráfico 3: Policiais por 1.000 Habitantes
+        const ctx3 = document.getElementById('policiaisHabitantesChart').getContext('2d');
+        new Chart(ctx3, {
+            type: 'bar',
+            data: {
+                labels: data.policiaisPorHabitante.labels,
+                datasets: [{
+                    label: 'Policiais por 1.000 habitantes',
+                    data: data.policiaisPorHabitante.taxa,
+                    backgroundColor: data.policiaisPorHabitante.labels.map(label => {
+                        if (label === 'Pernambuco') return colors.primary;
+                        if (label === 'Brasil') return colors.accent2;
+                        return colors.accent1;
+                    }),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+
+
+        // Gráfico 4: Ranking de Defasagem
+        const ctx4 = document.getElementById('defasagemChart').getContext('2d');
+        new Chart(ctx4, {
+            type: 'bar',
+            data: {
+                labels: data.defasagem.labels,
+                datasets: [{
+                    label: 'Defasagem do Efetivo (%)',
+                    data: data.defasagem.valores,
+                     backgroundColor: data.defasagem.labels.map(label => 
+                        label.includes('Pernambuco') ? colors.primary : colors.accent1
+                    ),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.raw}%` } }
+                },
+                scales: { x: { beginAtZero: true, ticks: { callback: v => v + '%' } } }
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
